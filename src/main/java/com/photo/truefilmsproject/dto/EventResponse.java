@@ -7,5 +7,6 @@ public record EventResponse(
         String title,
         String description,
         LocalDate eventDate,
+        String accessCode,
         boolean hasZip
 ) {}
