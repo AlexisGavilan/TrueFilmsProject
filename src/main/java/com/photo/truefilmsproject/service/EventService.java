@@ -68,7 +68,24 @@ public class EventService {
                 event.getDescription(),
                 event.getEventDate(),
                 event.getAccessCode(), // Incluimos el código de acceso en el DTO
-                event.getZipFileName() != null
+                event.getZipFileName() != null,
+                event.getCreatedAt()
         );
+    }
+
+    // HU-2.2: Actualizar el código de acceso de un evento existente
+    public EventResponse updateAccessCode(Long id, String newAccessCode) {
+        Event event = eventRepository.findById(id)
+                .orElseThrow(() -> new EventNotFoundException(id));
+
+        // Actualizamos el código de acceso (puedes validar si viene vacío si lo deseas)
+        String codeToUpdate = (newAccessCode != null && !newAccessCode.isBlank())
+                ? newAccessCode
+                : event.getAccessCode(); // o lanzar excepción si es obligatorio
+
+        event.setAccessCode(codeToUpdate);
+        Event updatedEvent = eventRepository.save(event);
+
+        return mapToResponse(updatedEvent);
     }
 }

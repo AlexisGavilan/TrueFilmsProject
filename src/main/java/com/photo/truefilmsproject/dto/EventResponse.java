@@ -1,6 +1,7 @@
 package com.photo.truefilmsproject.dto;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public record EventResponse(
         Long id,
@@ -8,5 +9,6 @@ public record EventResponse(
         String description,
         LocalDate eventDate,
         String accessCode,
-        boolean hasZip
+        boolean hasZip,
+        LocalDateTime createdAt
 ) {}
