@@ -90,4 +90,10 @@ public class PhotoService {
         }
         return byteArrayOutputStream.toByteArray();
     }
+
+    //HU-3.3
+    public Photo getPhotoEntity(Long id) {
+        return photoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Fotografía no encontrada"));
+    }
 }

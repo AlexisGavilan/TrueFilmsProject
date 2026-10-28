@@ -2,6 +2,7 @@ package com.photo.truefilmsproject.controller;
 
 import com.photo.truefilmsproject.dto.PhotoResponse;
 import com.photo.truefilmsproject.dto.DownloadSelectionRequest;
+import com.photo.truefilmsproject.entity.Photo; // Asegúrate de importar tu entidad Photo
 import com.photo.truefilmsproject.service.PhotoService;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -61,6 +62,22 @@ public class PhotoController {
                     .headers(headers)
                     .body(zipData);
         } catch (IOException e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    // NUEVO: Endpoint para descarga individual personalizada (Fuerza la descarga con nombre original)
+    @GetMapping("/photos/{id}/download")
+    public ResponseEntity<Resource> downloadSinglePhoto(@PathVariable Long id) {
+        try {
+            Photo photo = photoService.getPhotoEntity(id);
+            Resource resource = photoService.loadPhotoAsResource(id, false);
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.IMAGE_JPEG)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + photo.getFileName() + "\"")
+                    .body(resource);
+        } catch (Exception e) {
             return ResponseEntity.internalServerError().build();
         }
     }
