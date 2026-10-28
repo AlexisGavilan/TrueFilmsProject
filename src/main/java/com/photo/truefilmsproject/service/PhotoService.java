@@ -12,12 +12,16 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.Files;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @Service
 public class PhotoService {
@@ -67,5 +71,23 @@ public class PhotoService {
         } catch (MalformedURLException e) {
             throw new RuntimeException("Error en la ruta del archivo", e);
         }
+    }
+
+    public byte[] createZipFromSelectedPhotos(List<Long> photoIds) throws IOException {
+        List<Photo> photos = photoRepository.findAllById(photoIds);
+
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        try (ZipOutputStream zipOut = new ZipOutputStream(byteArrayOutputStream)) {
+            for (Photo photo : photos) {
+                Path filePath = Paths.get(photo.getFilePath());
+                if (Files.exists(filePath)) {
+                    ZipEntry zipEntry = new ZipEntry(photo.getFileName());
+                    zipOut.putNextEntry(zipEntry);
+                    Files.copy(filePath, zipOut);
+                    zipOut.closeEntry();
+                }
+            }
+        }
+        return byteArrayOutputStream.toByteArray();
     }
 }

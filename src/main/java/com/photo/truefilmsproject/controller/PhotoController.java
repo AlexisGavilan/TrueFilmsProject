@@ -1,12 +1,15 @@
 package com.photo.truefilmsproject.controller;
 
 import com.photo.truefilmsproject.dto.PhotoResponse;
+import com.photo.truefilmsproject.dto.DownloadSelectionRequest;
 import com.photo.truefilmsproject.service.PhotoService;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
+import java.io.IOException;
 
 import java.util.List;
 
@@ -43,5 +46,22 @@ public class PhotoController {
         return ResponseEntity.ok()
                 .contentType(MediaType.IMAGE_JPEG)
                 .body(resource);
+    }
+
+    @PostMapping("/photos/download-selection")
+    public ResponseEntity<byte[]> downloadSelectedPhotos(@Valid @RequestBody DownloadSelectionRequest request) {
+        try {
+            byte[] zipData = photoService.createZipFromSelectedPhotos(request.photoIds());
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDispositionFormData("attachment", "fotos-seleccionadas.zip");
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(zipData);
+        } catch (IOException e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }
