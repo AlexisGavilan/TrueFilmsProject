@@ -33,7 +33,7 @@ services:
 
   # Frontend (Next.js)
   frontend:
-    build: ./TrueFilmsProject-Web
+    build: ./truefilmsproject-web
     container_name: next_frontend
     ports:
       - "3000:3000"
