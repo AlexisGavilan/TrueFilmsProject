@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  postgres:
+    # Data base PostgreSQL
+    image: postgres:15-alpine
+    container_name: postgres_db
+    environment:
+      POSTGRES_DB: photo_db
+      POSTGRES_USER: alexis
+      POSTGRES_PASSWORD: "True"
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # Backend Spring Boot
+  backend:
+    build: ./TrueFilmsProject
+    container_name: spring_backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/photo_db
+      - SPRING_DATASOURCE_USERNAME=alexis
+      - SPRING_DATASOURCE_PASSWORD=True
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - FILE_UPLOAD_DIR=./uploads
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      - postgres
+
+  # Frontend (Next.js)
+  frontend:
+    build: ./TrueFilmsProject-Web
+    container_name: next_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
