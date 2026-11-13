@@ -5,7 +5,11 @@ import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 
 public record EventRequest(
-        @NotBlank(message = "El título es obligatorio") String title,
+        @NotBlank(message = "El título es obligatorio")
+        String title,
         String description,
-        @NotNull(message = "La fecha es obligatoria") LocalDate eventDate, String accessCode
+        @NotNull(message = "La fecha es obligatoria")
+        LocalDate eventDate,
+        String accessCode,
+        Integer expiresAt // 👈 NUEVO: Días de caducidad personalizados (opcional)
 ) {}

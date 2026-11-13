@@ -29,9 +29,16 @@ public class Event {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(nullable = false)
+    private LocalDateTime expiresAt; // Fecha límite de disponibilidad (5 días)
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
+        // Si expiresAt viene nulo, aplicamos el valor por defecto de 5 días
+        if (this.expiresAt == null) {
+            this.expiresAt = this.createdAt.plusDays(5);
+        }
     }
 
     public Event() {}
@@ -56,4 +63,7 @@ public class Event {
     public void setZipFileName(String zipFileName) { this.zipFileName = zipFileName; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
+
+    public LocalDateTime getExpiresAt() { return expiresAt; }
+    public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
 }

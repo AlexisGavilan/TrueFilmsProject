@@ -10,5 +10,6 @@ public record EventResponse(
         LocalDate eventDate,
         String accessCode,
         boolean hasZip,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        LocalDateTime expiresAt // Expiration date sent to the frontend
 ) {}
