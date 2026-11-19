@@ -2,55 +2,52 @@ package com.photo.truefilmsproject.service;
 
 import com.photo.truefilmsproject.entity.Event;
 import com.photo.truefilmsproject.repository.EventRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
-import java.nio.file.*;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 public class CleanupService {
 
-    private static final Logger log = LoggerFactory.getLogger(CleanupService.class);
     private final EventRepository eventRepository;
+    private final EventService eventService;
 
-    public CleanupService(EventRepository eventRepository) {
+    public CleanupService(EventRepository eventRepository, EventService eventService) {
         this.eventRepository = eventRepository;
+        this.eventService = eventService;
     }
 
-    // Se ejecuta automáticamente todos los días a las 03:00 AM (HU-4.2)[cite: 3]
+    /**
+     * Se ejecuta automáticamente de forma periódica.
+     * Por defecto, configurado para ejecutarse todos los días a las 03:00 AM.
+     * (Puedes cambiar el cron o usar fixedRate si prefieres pruebas más rápidas).
+     */
     @Scheduled(cron = "0 0 3 * * *")
-    public void purgeExpiredEvents() {
-        log.info("Ejecutando tarea programada de limpieza de eventos caducados...");
+    @Transactional
+    public void cleanupExpiredEvents() {
+        LocalDateTime now = LocalDateTime.now();
 
-        List<Event> expiredEvents = eventRepository.findByExpiresAtBefore(LocalDateTime.now());
+        // Buscamos todos los eventos cuya fecha de expiración sea anterior a la actual
+        List<Event> expiredEvents = eventRepository.findByExpiresAtBefore(now);
+
+        if (expiredEvents.isEmpty()) {
+            return;
+        }
+
+        System.out.println("🧹 [CleanupService] Encontrados " + expiredEvents.size() + " eventos caducados. Procediendo a borrarlos...");
 
         for (Event event : expiredEvents) {
             try {
-                // 1. Borrar carpeta física y archivos del disco
-                Path eventFolder = Paths.get("storage/events/" + event.getId());
-                if (Files.exists(eventFolder)) {
-                    Files.walk(eventFolder)
-                            .sorted((p1, p2) -> -p1.compareTo(p2))
-                            .forEach(path -> {
-                                try {
-                                    Files.delete(path);
-                                } catch (IOException e) {
-                                    log.error("Error al borrar archivo físico: " + path, e);
-                                }
-                            });
-                }
-
-                // 2. Borrar registro de la base de datos
-                eventRepository.delete(event);
-                log.info("Evento ID {} eliminado correctamente por caducidad.", event.getId());
-
+                // Llamamos a eventService.deleteEvent para que borre:
+                // 1. Los archivos físicos del disco (ZIP, originals, thumbnails) mediante FileStorageService
+                // 2. El registro en la base de datos
+                eventService.deleteEvent(event.getId());
+                System.out.println("✅ Evento caducado eliminado con éxito: ID " + event.getId() + " (" + event.getTitle() + ")");
             } catch (Exception e) {
-                log.error("Error al limpiar el evento ID: " + event.getId(), e);
+                System.err.println("❌ Error al eliminar el evento caducado ID " + event.getId() + ": " + e.getMessage());
             }
         }
     }

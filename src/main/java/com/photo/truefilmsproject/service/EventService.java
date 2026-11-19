@@ -16,9 +16,11 @@ import java.util.UUID;
 public class EventService {
 
     private final EventRepository eventRepository;
+    private final FileStorageService fileStorageService;
 
-    public EventService(EventRepository eventRepository) {
+    public EventService(EventRepository eventRepository, FileStorageService fileStorageService) {
         this.eventRepository = eventRepository;
+        this.fileStorageService = fileStorageService;
     }
 
     public List<EventResponse> getAllEvents() {
@@ -59,6 +61,7 @@ public class EventService {
         if (!eventRepository.existsById(id)) {
             throw new EventNotFoundException(id);
         }
+        fileStorageService.deleteEventFiles(id);
         eventRepository.deleteById(id);
     }
 

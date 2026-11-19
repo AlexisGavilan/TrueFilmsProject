@@ -1,14 +1,17 @@
 package com.photo.truefilmsproject.controller;
 
+import com.photo.truefilmsproject.dto.DiskSpaceResponse;
 import com.photo.truefilmsproject.dto.EventRequest;
 import com.photo.truefilmsproject.dto.EventResponse;
 import com.photo.truefilmsproject.dto.UpdateAccessCodeRequest;
 import com.photo.truefilmsproject.service.EventService;
+import com.photo.truefilmsproject.service.FileStorageService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -18,9 +21,11 @@ import java.util.List;
 public class AdminEventController {
 
     private final EventService eventService;
+    private final FileStorageService fileStorageService;
 
-    public AdminEventController(EventService eventService) {
+    public AdminEventController(EventService eventService, FileStorageService fileStorageService) {
         this.eventService = eventService;
+        this.fileStorageService = fileStorageService;
     }
 
     // GET /api/admin/events -> Listar todos los eventos (vista de administrador)
@@ -51,5 +56,31 @@ public class AdminEventController {
     public ResponseEntity<Void> deleteEvent(@PathVariable Long id) {
         eventService.deleteEvent(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // HU-4.3
+    // POST /api/admin/events/{id}/file -> Subir o actualizar el paquete ZIP de fotos del evento (HU-4.3)
+    @PostMapping("/{id}/file")
+    public ResponseEntity<Void> uploadEventFile(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        fileStorageService.storeZipFile(id, file);
+        return ResponseEntity.ok().build();
+    }
+
+    // ==========================================
+    // 1. DISK SPACE (HU-4.3)
+    // ==========================================
+
+    // GET /api/admin/disk-space -> Obtener espacio total, usado y libre del servidor
+    @GetMapping("/disk-space")
+    public ResponseEntity<DiskSpaceResponse> getDiskSpace() {
+        return ResponseEntity.ok(fileStorageService.getDiskSpaceInfo());
+    }
+
+    // Endpoint de prueba rápida para verificar si Docker lee el controlador
+    @GetMapping("/test-ping")
+    public ResponseEntity<String> testPing() {
+        return ResponseEntity.ok("¡El AdminEventController está vivo en Docker!");
     }
 }
