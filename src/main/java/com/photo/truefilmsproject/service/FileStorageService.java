@@ -1,6 +1,8 @@
 package com.photo.truefilmsproject.service;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -13,6 +15,8 @@ import net.coobird.thumbnailator.Thumbnails;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -47,9 +51,72 @@ public class FileStorageService {
         }
     }
 
-    /**
-     * Guarda el ZIP, lo descomprime al vuelo, genera miniaturas y registra las fotos en BD.
-     */
+    public String storeBannerImage(Long eventId, MultipartFile file) {
+        try {
+            if (file == null || file.isEmpty()) {
+                throw new IllegalArgumentException("No se puede almacenar una imagen de banner vacía.");
+            }
+
+            String contentType = file.getContentType();
+            if (contentType != null && !contentType.startsWith("image/")) {
+                throw new IllegalArgumentException("El archivo del banner debe ser una imagen válida.");
+            }
+
+            eventRepository.findById(eventId)
+                    .orElseThrow(() -> new RuntimeException("Evento no encontrado con ID: " + eventId));
+
+            Path bannerDir = rootLocation.resolve("events/" + eventId + "/banner").normalize();
+            Files.createDirectories(bannerDir);
+
+            if (Files.exists(bannerDir)) {
+                try (DirectoryStream<Path> stream = Files.newDirectoryStream(bannerDir)) {
+                    for (Path existing : stream) {
+                        Files.deleteIfExists(existing);
+                    }
+                }
+            }
+
+            String rawName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "banner.jpg";
+            String simpleName = Paths.get(rawName).getFileName().toString().replaceAll("[^a-zA-Z0-9._-]", "_");
+
+            Path destinationFile = bannerDir.resolve(simpleName).normalize();
+            if (!destinationFile.startsWith(bannerDir)) {
+                throw new SecurityException("Ruta de archivo no válida.");
+            }
+
+            Files.copy(file.getInputStream(), destinationFile, StandardCopyOption.REPLACE_EXISTING);
+
+            return "/api/events/" + eventId + "/banner";
+        } catch (IOException e) {
+            throw new RuntimeException("Fallo al almacenar la imagen del banner.", e);
+        }
+    }
+
+    public Resource loadBannerFile(Long eventId) {
+        try {
+            Path bannerDir = rootLocation.resolve("events/" + eventId + "/banner").normalize();
+            if (!Files.exists(bannerDir) || !Files.isDirectory(bannerDir)) {
+                return null;
+            }
+
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(bannerDir)) {
+                for (Path filePath : stream) {
+                    if (Files.isRegularFile(filePath)) {
+                        Resource resource = new UrlResource(filePath.toUri());
+                        if (resource.exists() && resource.isReadable()) {
+                            return resource;
+                        }
+                    }
+                }
+            }
+            return null;
+        } catch (MalformedURLException e) {
+            throw new RuntimeException("Error al cargar la imagen del banner para el evento: " + eventId, e);
+        } catch (IOException e) {
+            throw new RuntimeException("Error al leer el directorio del banner para el evento: " + eventId, e);
+        }
+    }
+
     public void storeZipFile(Long eventId, MultipartFile file) {
         try {
             if (file.isEmpty()) {
@@ -66,18 +133,15 @@ public class FileStorageService {
             Files.createDirectories(originalsDir);
             Files.createDirectories(thumbsDir);
 
-            // 1. Guardar el archivo ZIP completo en disco (para descargas masivas si procede)
             Path destinationFile = eventDirectory.resolve("photos.zip");
             Files.copy(file.getInputStream(), destinationFile, StandardCopyOption.REPLACE_EXISTING);
 
-            // 2. Leer y descomprimir el ZIP para extraer imágenes y guardarlas individualmente
             try (ZipInputStream zis = new ZipInputStream(file.getInputStream())) {
                 ZipEntry zipEntry;
                 while ((zipEntry = zis.getNextEntry()) != null) {
                     String fileName = zipEntry.getName();
                     String lowerName = fileName.toLowerCase();
 
-                    // Filtrar directorios, archivos ocultos del sistema (__MACOSX, .DS_Store) y extensiones no válidas
                     if (zipEntry.isDirectory() ||
                             (!lowerName.endsWith(".jpg") && !lowerName.endsWith(".jpeg") && !lowerName.endsWith(".png")) ||
                             fileName.contains("__MACOSX") || fileName.contains(".DS_Store")) {
@@ -99,20 +163,17 @@ public class FileStorageService {
                     Path originalFilePath = originalsDir.resolve(simpleFileName);
                     Path thumbFilePath = thumbsDir.resolve(simpleFileName);
 
-                    // Copiar el archivo original de la foto al disco
                     Files.copy(zis, originalFilePath, StandardCopyOption.REPLACE_EXISTING);
 
-                    // Generar la miniatura optimizada con Thumbnailator
                     try {
                         Thumbnails.of(originalFilePath.toFile())
                                 .size(400, 400)
                                 .outputFormat("jpg")
                                 .toFile(thumbFilePath.toFile());
                     } catch (Exception e) {
-                        // Si falla la miniatura de alguna imagen en concreto, continúa
+                        // Continúa si falla una miniatura puntual
                     }
 
-                    // Guardar los metadatos y rutas en la base de datos vinculados al evento
                     long fileSize = Files.size(originalFilePath);
                     Photo photo = new Photo();
                     photo.setFileName(simpleFileName);
@@ -126,7 +187,6 @@ public class FileStorageService {
                     zis.closeEntry();
                 }
             }
-
         } catch (IOException e) {
             throw new RuntimeException("Fallo al almacenar y descomprimir el archivo ZIP.", e);
         }
@@ -158,7 +218,6 @@ public class FileStorageService {
         try {
             Path eventDirectory = rootLocation.resolve("events/" + eventId);
             if (Files.exists(eventDirectory)) {
-                // Borra recursivamente la carpeta del evento (photos.zip, originals, thumbnails)
                 Files.walk(eventDirectory)
                         .sorted(java.util.Comparator.reverseOrder())
                         .map(Path::toFile)

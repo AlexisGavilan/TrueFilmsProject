@@ -10,6 +10,8 @@ public record EventResponse(
         LocalDate eventDate,
         String accessCode,
         boolean hasZip,
+        String bannerImageUrl,
         LocalDateTime createdAt,
         LocalDateTime expiresAt // Expiration date sent to the frontend
 ) {}
+

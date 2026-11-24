@@ -26,6 +26,10 @@ public class Event {
 
     private String zipFileName;
 
+    // Imagen de franja/cabecera editable desde el panel de admin
+    @Column(length = 1000)
+    private String bannerImageUrl;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -62,8 +66,10 @@ public class Event {
     public String getZipFileName() { return zipFileName; }
     public void setZipFileName(String zipFileName) { this.zipFileName = zipFileName; }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
+    public String getBannerImageUrl() { return bannerImageUrl; }
+    public void setBannerImageUrl(String bannerImageUrl) { this.bannerImageUrl = bannerImageUrl; }
 
+    public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getExpiresAt() { return expiresAt; }
     public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
 }
