@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -225,6 +226,70 @@ public class FileStorageService {
             }
         } catch (IOException e) {
             throw new RuntimeException("No se pudieron eliminar los archivos físicos del evento: " + eventId, e);
+        }
+    }
+
+    public String storeAboutMeImage(String slot, MultipartFile file) {
+        try {
+            if (file == null || file.isEmpty()) {
+                throw new IllegalArgumentException("No se puede almacenar una imagen vacía.");
+            }
+            String contentType = file.getContentType();
+            if (contentType != null && !contentType.startsWith("image/")) {
+                throw new IllegalArgumentException("El archivo debe ser una imagen válida.");
+            }
+            if (!List.of("hero", "gallery-1", "gallery-2", "gallery-3", "gallery-4").contains(slot)) {
+                throw new IllegalArgumentException("Slot de imagen no válido: " + slot);
+            }
+
+            Path slotDir = rootLocation.resolve("about-me/" + slot).normalize();
+            Files.createDirectories(slotDir);
+
+            if (Files.exists(slotDir)) {
+                try (DirectoryStream<Path> stream = Files.newDirectoryStream(slotDir)) {
+                    for (Path existing : stream) {
+                        Files.deleteIfExists(existing);
+                    }
+                }
+            }
+
+            String rawName = file.getOriginalFilename() != null ? file.getOriginalFilename() : slot + ".jpg";
+            String simpleName = Paths.get(rawName).getFileName().toString().replaceAll("[^a-zA-Z0-9._-]", "_");
+
+            Path destinationFile = slotDir.resolve(simpleName).normalize();
+            if (!destinationFile.startsWith(slotDir)) {
+                throw new SecurityException("Ruta de archivo no válida.");
+            }
+
+            Files.copy(file.getInputStream(), destinationFile, StandardCopyOption.REPLACE_EXISTING);
+
+            return "/api/about-me/images/" + slot;
+        } catch (IOException e) {
+            throw new RuntimeException("Fallo al almacenar la imagen de Sobre mí.", e);
+        }
+    }
+
+    public Resource loadAboutMeImage(String slot) {
+        try {
+            Path slotDir = rootLocation.resolve("about-me/" + slot).normalize();
+            if (!Files.exists(slotDir) || !Files.isDirectory(slotDir)) {
+                return null;
+            }
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(slotDir)) {
+                for (Path filePath : stream) {
+                    if (Files.isRegularFile(filePath)) {
+                        Resource resource = new UrlResource(filePath.toUri());
+                        if (resource.exists() && resource.isReadable()) {
+                            return resource;
+                        }
+                    }
+                }
+            }
+            return null;
+        } catch (MalformedURLException e) {
+            throw new RuntimeException("Error al cargar la imagen de Sobre mí para el slot: " + slot, e);
+        } catch (IOException e) {
+            throw new RuntimeException("Error al leer el directorio de Sobre mí para el slot: " + slot, e);
         }
     }
 }
